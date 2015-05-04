@@ -41,20 +41,21 @@ public class NaverHDScrapper {
 
 	private static class HDScrapFrame extends JFrame{
 		JTextField urlinput,postinput;
-		JLabel urlLabel,postLabel,resultLabel,infoLabel,linkLabel,resultField;
+		JLabel urlLabel,postLabel,resultLabel,infoLabel,linkLabel,resultField,resultLabel2,resultField2;
 		JPanel inputLine,postLine,setupLine,infoPanel,resultPanel;
 		JButton inputbtn;
-		String userAgent = "Mozilla/4.0",videoURLString;
+		String userAgent = "Mozilla/4.0",videoURLString,videoURLString2;
 
 		public HDScrapFrame(){
-			setTitle("NaverHDScrapper_By.카가미네");
+			setTitle("NaverHDScrapper");
 			setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-			setSize(800,250);
+			setSize(800,300);
 			setResizable(false);
 
 			urlLabel = new JLabel("URL 주소");
 			postLabel = new JLabel("포스트 주소");
-			resultLabel = new JLabel("결과값 : ");
+			resultLabel = new JLabel("결과값(720P) : ");
+			resultLabel2 = new JLabel("결과값(1080P) : ");
 			infoLabel = new JLabel("<HTML>1. 네이버 동영상 [퍼가기] > URL 주소, 포스트 주소 값을 복사하여 넣습니다<br>"
 					+"2. [시작] 버튼을 누릅니다.<br>"
 					+"3. 결과값의 링크를 들어가시면 HD 동영상이 되어 있습니다. [퍼가기] 하시면 됩니다.<br><br>"
@@ -83,6 +84,7 @@ public class NaverHDScrapper {
 			});
 
 			resultField = new JLabel();
+			resultField2 = new JLabel();
 
 			setupLine = new JPanel();
 			inputLine = new JPanel();
@@ -122,20 +124,20 @@ public class NaverHDScrapper {
 								conn.setRequestProperty("User-Agent", userAgent);
 
 								videoURLString = MakeResultURL(movieString,
-										ProcessXMLDocument(conn.getInputStream()));
+										ProcessXMLDocument(conn.getInputStream(),1),1);
 
+								if(videoURLString.equals("720P OR 1080P HD 영상이 지원되지 않는 동영상 입니다.")){
+									resultField.setText(videoURLString);
+									resultField.setCursor(null);
+									return;
+								}
+								
 								MouseListener[] mList = resultField.getMouseListeners();
 
 								for(MouseListener m : mList){
 									resultField.removeMouseListener(m);
 								}
 
-								if(videoURLString.equals("720P HD 영상이 지원되지 않는 동영상 입니다.")){
-									resultField.setText(videoURLString);
-									resultField.setCursor(null);
-									return;
-								}
-								
 								resultField.setText("<HTML><a href=\"#\">"+videoURLString + "</a></HTML>");
 								resultField.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 								resultField.addMouseListener(new MouseAdapter() {
@@ -146,6 +148,46 @@ public class NaverHDScrapper {
 												Desktop desktop = Desktop.getDesktop();
 												try {
 													URI uri = new URI(videoURLString + "&width=720&height=438&ispublic=true");
+													desktop.browse(uri);
+												} catch (URISyntaxException e1) {
+													e1.printStackTrace();
+												} catch (IOException e1) {
+													e1.printStackTrace();
+												}
+											}
+										}
+									}
+								});
+								
+								conn = url.openConnection();
+								conn.setUseCaches(false);
+								conn.setRequestProperty("User-Agent", userAgent);
+								
+								videoURLString2 = MakeResultURL(movieString,
+										ProcessXMLDocument(conn.getInputStream(),2),2);
+								
+								if(videoURLString2.equals("1080P HD 영상이 지원되지 않는 동영상 입니다.")){
+									resultField2.setText(videoURLString2);
+									resultField2.setCursor(null);
+									return;
+								}
+								
+								mList = resultField2.getMouseListeners();
+
+								for(MouseListener m : mList){
+									resultField2.removeMouseListener(m);
+								}
+								
+								resultField2.setText("<HTML><a href=\"#\">"+videoURLString2 + "</a></HTML>");
+								resultField2.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+								resultField2.addMouseListener(new MouseAdapter() {
+									@Override
+									public void mouseClicked(MouseEvent e) {
+										if(e.getClickCount()>0){
+											if(Desktop.isDesktopSupported()){
+												Desktop desktop = Desktop.getDesktop();
+												try {
+													URI uri = new URI(videoURLString2 + "&width=1080&height=720&ispublic=true");
 													desktop.browse(uri);
 												} catch (URISyntaxException e1) {
 													e1.printStackTrace();
@@ -168,7 +210,6 @@ public class NaverHDScrapper {
 							String resultURL = null;
 							URLConnection conn;
 							URL url;
-							InputStream post;
 
 							if(!postURL.contains("blog.naver.com"))
 								return null;
@@ -214,7 +255,7 @@ public class NaverHDScrapper {
 							return result;
 						}
 
-						private String ProcessXMLDocument(InputStream XMLStream){
+						private String ProcessXMLDocument(InputStream XMLStream,int flag){
 							String result = null;
 
 							try {
@@ -235,8 +276,11 @@ public class NaverHDScrapper {
 
 									NodeList nameList = Optionlement.getElementsByTagName("encodingOptionName");
 									String optname = nameList.item(0).getTextContent();
-
-									if(optname.equals("720P")){
+									
+									if(optname.equals("720P") && flag == 1){
+										result = "vid=" + vid;
+									}
+									if(optname.equals("1080P") && flag == 2){
 										result = "vid=" + vid;
 									}
 								}
@@ -252,9 +296,15 @@ public class NaverHDScrapper {
 
 							return result;
 						}
-						private String MakeResultURL(String processed,String vidString){
-							if(vidString == null)
-								return "720P HD 영상이 지원되지 않는 동영상 입니다.";
+						private String MakeResultURL(String processed,String vidString,int flag){
+							if(vidString == null){
+								if(flag == 1){
+									return "720P OR 1080P HD 영상이 지원되지 않는 동영상 입니다.";
+								}
+								else if(flag == 2){
+									return "1080P HD 영상이 지원되지 않는 동영상 입니다.";
+								}
+							}
 
 							String[] params = processed.split("\\?")[1].split("&");
 
@@ -284,9 +334,15 @@ public class NaverHDScrapper {
 			infoPanel.add(new JLabel(" "),BorderLayout.PAGE_END);
 
 			resultPanel = new JPanel();
-			resultPanel.setLayout(new BorderLayout());
-			resultPanel.add(resultLabel,BorderLayout.WEST);
-			resultPanel.add(resultField,BorderLayout.CENTER);
+			resultPanel.setLayout(new GridLayout(2,1));
+			JPanel tempPanel1 = new JPanel(new BorderLayout());
+			JPanel tempPanel2 = new JPanel(new BorderLayout());
+			tempPanel1.add(resultLabel, BorderLayout.WEST);
+			tempPanel1.add(resultField, BorderLayout.CENTER);
+			tempPanel2.add(resultLabel2, BorderLayout.WEST);
+			tempPanel2.add(resultField2, BorderLayout.CENTER);
+			resultPanel.add(tempPanel1);
+			resultPanel.add(tempPanel2);
 
 			setLayout(new BorderLayout());
 			add(setupLine,BorderLayout.PAGE_START);
